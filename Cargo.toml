@@ -1,0 +1,23 @@
+[package]
+name = "unbox"
+version = "0.1.0"
+description = "Unshare a toolbox"
+license = "MPL-2.0"
+edition = "2021"
+readme = "README.md"
+repository = "https://github.com/lopukhov/unbox"
+keywords = ["containers", "toolbox", "unbox", "linux"]
+categories = ["virtualization"]
+
+[dependencies]
+nix = "0.25"
+argh = "0.1"
+color-eyre = { version = "0.6", default-features = false }
+tar = "0.4"
+users = "0.11"
+
+[profile.optimized]
+inherits = "release"
+lto = true
+strip = true
+codegen-units = 1
