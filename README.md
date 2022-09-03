@@ -5,10 +5,9 @@ It does _not_ use established container runtimes (`podman`, `docker`, `systemd-s
 is implemented directly with Linux Nampespaces to provide the environment of execution. For the creation of the images it is possible
 to use existing OCI images.
 
----
-**WARNING:** The implementation is still very young, and has not been "battle tested" at all, the only usage to my knowledge has been
-in my personal computer. If you find any bugs, please open an issue.
----
+> **Warning**
+> The implementation is still very young, and has not been "battle tested" at all, the only usage to my knowledge has been in my personal
+> computer. If you find any bugs, please open an issue.
 
 ## Instalation
 
