@@ -11,10 +11,10 @@ categories = ["virtualization"]
 
 [dependencies]
 nix = "0.25"
-argh = "0.1"
 color-eyre = { version = "0.6", default-features = false }
 tar = "0.4"
 users = "0.11"
+clap = { version = "3.2", features = ["derive"] }
 
 [profile.optimized]
 inherits = "release"

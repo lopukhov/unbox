@@ -5,7 +5,7 @@
 #![forbid(unsafe_code)]
 #![warn(rust_2018_idioms, missing_debug_implementations)]
 
-use argh::FromArgs;
+use clap::{Args, Parser, Subcommand};
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use std::env;
@@ -18,76 +18,71 @@ mod run;
 const IMAGES: &str = ".local/share/unbox/images/";
 
 /// Shell in a box
-#[derive(FromArgs, PartialEq, Eq, Debug)]
+#[derive(Parser, PartialEq, Eq, Debug)]
+#[clap(version, about)]
 struct UnBox {
-    #[argh(subcommand)]
+    #[clap(subcommand)]
     subcommands: Subcommands,
 }
 
-#[derive(FromArgs, PartialEq, Eq, Debug)]
-#[argh(subcommand)]
+#[derive(Subcommand, PartialEq, Eq, Debug)]
 enum Subcommands {
     Create(Create),
     Enter(Enter),
     Run(Run),
-    Remove(Remove),
+    Remove(Rm),
     List(List),
 }
 
 /// Create the unbox rootfs from an image
-#[derive(FromArgs, PartialEq, Eq, Debug)]
-#[argh(subcommand, name = "create")]
+#[derive(Args, PartialEq, Eq, Debug)]
 pub struct Create {
-    #[argh(positional)]
+    #[clap(value_parser)]
     /// name of the unbox
     name: String,
-    #[argh(option, short = 't')]
+    #[clap(short, long, value_parser)]
     /// path to the tarball
     tar: Option<PathBuf>,
-    #[argh(option, short = 'i')]
+    #[clap(short, long, value_parser)]
     /// url of the OCI image
     oci_image: Option<String>,
-    #[argh(option, short = 'e')]
-    /// OCI engine to extract the rootfs, supporte values: docker or podman
+    #[clap(short, long, value_parser)]
+    /// OCI engine to extract the rootfs (docker or podman)
     engine: Option<String>,
 }
 
 /// Enter the unbox
-#[derive(FromArgs, PartialEq, Eq, Debug)]
-#[argh(subcommand, name = "enter")]
+#[derive(Args, PartialEq, Eq, Debug)]
 pub struct Enter {
-    #[argh(positional)]
+    #[clap(value_parser)]
     /// name of the unbox
     name: String,
 }
 
 /// Run a command in the unbox
-#[derive(FromArgs, PartialEq, Eq, Debug)]
-#[argh(subcommand, name = "run")]
+#[derive(Args, PartialEq, Eq, Debug)]
 pub struct Run {
-    #[argh(positional)]
+    #[clap(value_parser)]
     /// name of the unbox
     name: String,
-    #[argh(positional)]
+    #[clap(value_parser)]
     /// command to run
     cmd: String,
     /// command arguments
-    #[argh(positional)]
+    #[clap(value_parser)]
     args: Vec<String>,
 }
 
 /// Remove a unbox
-#[derive(FromArgs, PartialEq, Eq, Debug)]
-#[argh(subcommand, name = "rm")]
-struct Remove {
-    #[argh(positional)]
+#[derive(Args, PartialEq, Eq, Debug)]
+struct Rm {
+    #[clap(value_parser)]
     /// name of the unbox
     name: String,
 }
 
 /// List unboxes
-#[derive(FromArgs, PartialEq, Eq, Debug)]
-#[argh(subcommand, name = "list")]
+#[derive(Args, PartialEq, Eq, Debug)]
 struct List {}
 
 fn main() -> eyre::Result<()> {
@@ -95,7 +90,7 @@ fn main() -> eyre::Result<()> {
     color_eyre::config::HookBuilder::default()
         .display_env_section(false)
         .install()?;
-    let cmd: UnBox = argh::from_env();
+    let cmd = UnBox::parse();
 
     match cmd.subcommands {
         Subcommands::Create(args) => create::create(args),
@@ -106,7 +101,7 @@ fn main() -> eyre::Result<()> {
     }
 }
 
-fn rm(args: Remove) -> eyre::Result<()> {
+fn rm(args: Rm) -> eyre::Result<()> {
     let home = env::var("HOME").wrap_err("Could not find current home")?;
     let image = format!("{}/{}/{}", home, IMAGES, args.name);
     std::fs::remove_dir_all(image).wrap_err("Could not remove the selected toolbox")

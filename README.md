@@ -26,6 +26,15 @@ $ just native
 $ cp ./target/optimized/unbox ~/.local/bin/
 ```
 
+Or a statically linked binary:
+
+```sh
+$ just sbuild optimized
+[...]
+
+$ cp ./target/x86_64-unknown-linux-musl/optimized/unbox ~/.local/bin/
+```
+
 But it is not needed, you can also use:
 
 ```sh
