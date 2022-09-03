@@ -11,6 +11,7 @@ use std::ffi::{OsStr, OsString};
 use crate::namespaces::{Mapping, MountInfo, Namespace};
 
 pub fn enter(args: crate::Enter) -> eyre::Result<()> {
+    // TODO: Have a fallback for when `$SHELL` does not exist in the image
     let shell = match env::var_os("SHELL") {
         Some(s) => s,
         None => "/bin/sh".into(),
@@ -48,6 +49,7 @@ where
         ("/host/sys", "/sys"),
         ("/host/tmp", "/tmp"),
         ("/host/dev", "/dev"),
+        ("/host/run", "/run"),
         ("/host/home", "/home"),
         ("/host/etc/hosts", "/etc/hosts"),
         ("/host/etc/resolv.conf", "/etc/resolv.conf"),
