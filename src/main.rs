@@ -98,12 +98,12 @@ fn main() -> eyre::Result<()> {
         Subcommands::Create(args) => create::create(args),
         Subcommands::Enter(args) => run::enter(args),
         Subcommands::Run(args) => run::run(args),
-        Subcommands::Remove(args) => rm(args),
+        Subcommands::Remove(args) => remove(args),
         Subcommands::List(_) => list(),
     }
 }
 
-fn rm(args: Remove) -> eyre::Result<()> {
+fn remove(args: Remove) -> eyre::Result<()> {
     let home = env::var("HOME").wrap_err("Could not find current home")?;
     let image = format!("{}/{}/{}", home, IMAGES, args.name);
     std::fs::remove_dir_all(image).wrap_err("Could not remove the selected toolbox")
