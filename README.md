@@ -59,13 +59,13 @@ $ unbox create <name> -t <path to rootfs.tar>
 If `podman` or `docker` are installed an OCI image can be downloaded an used, note that it may take a while if the image has not already been downloaded:
 
 ```sh
-$ unbox create <name> -i <url for the image> -e <engine to be used>
+$ unbox create <name> -o <url for the image> -e <engine to be used>
 ```
 
 For example to create an Arch Linux toolbox from its official OCI image using `podman`:
 
 ```sh
-$ unbox create archlinux -i docker.io/archlinux:latest -e podman
+$ unbox create archlinux -o docker.io/archlinux:latest -e podman
 ```
 
 ### Enter
@@ -103,7 +103,7 @@ $ unbox list
 To delete an existing toolbox:
 
 ```sh
-$ unbox rm <name>
+$ unbox remove <name>
 ```
 
 ## Alternatives
