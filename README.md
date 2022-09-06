@@ -106,10 +106,10 @@ To delete an existing toolbox:
 $ unbox rm <name>
 ```
 
-## Alternativas
+## Alternatives
 
-There are a number of different implementations of the ideas originally developed by `toolbx`, this section compares `unbox` with earch of them
-to flesh out their strengths and weaknesses. This comparaison should not be regarded as absolute truth as it may be biased by my opinions and interests
+There are a number of different implementations of the ideas originally developed by `toolbx`, this section compares `unbox` with each of them
+to flesh out their strengths and weaknesses. This comparison should not be regarded as absolute truth as it may be biased by my opinions and interests
 or lose accuracy with new developments in each of the different implementations.
 
 | Implementation                                     | Language | Based on         | Image                  | Time to enter |
@@ -125,9 +125,9 @@ For the source of the "Time to enter" metric check [here](BENCH.md)
 ### Toolbx
 
 Toolbx is the original implementation and is the default in Fedora Silverblue. This means that it has been more "battle-tested" than the other alternatives,
-with more bugs being found and fixed and more features being considered an implemented. Officialy only Fedora images are supported, but it is possible to create
+with more bugs being found and fixed and more features being considered implemented. Officialy only Fedora images are supported, but it is possible to create
 images following their documentation for other distributions. In my opinion the most important downsides are the long time to enter into the toolbox and the lack
-of flexibility by using and OCI runtime.
+of flexibility by using an OCI runtime.
 
 ### Distrobox
 
@@ -141,7 +141,7 @@ a shell language which I dislike for bigger projects.
 
 Devbox is a young implementation based on the `Nix` project and it is more focused on giving reproducible environments to developers than on "pet" userspace for
 immutable distributions. In my opinion the biggest downside is the usage of `Nix`, which is not a pleasant experience to use in `ostree` distributions like
-Fedora Silverblue. Another downside that it shares with `unbox` is that because it is a younger project some features migth be missing or some bugs may not have been
+Fedora Silverblue. Another downside that it shares with `unbox` is that because it is a younger project some features might be missing or some bugs may not have been
 found.
 
 ## License
