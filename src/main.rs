@@ -5,7 +5,9 @@
 #![forbid(unsafe_code)]
 #![warn(rust_2018_idioms, missing_debug_implementations)]
 
-use clap::{Args, Parser, Subcommand};
+// TODO: add documentation
+
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use std::env;
@@ -17,7 +19,7 @@ mod run;
 
 const IMAGES: &str = ".local/share/unbox/images/";
 
-/// Shell in a box
+/// Unshare a toolbox
 #[derive(Parser, PartialEq, Eq, Debug)]
 #[clap(version, about)]
 struct UnBox {
@@ -45,10 +47,17 @@ pub struct Create {
     tar: Option<PathBuf>,
     #[clap(short, long, value_parser)]
     /// url of the OCI image
-    oci_image: Option<String>,
+    image: Option<String>,
     #[clap(short, long, value_parser)]
-    /// OCI engine to extract the rootfs (docker or podman)
-    engine: Option<String>,
+    /// OCI engine to extract the rootfs
+    engine: Option<Engine>,
+}
+
+/// OCI engine to extract the rootfs (docker or podman)
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, ValueEnum)]
+enum Engine {
+    Docker,
+    Podman,
 }
 
 /// Enter the unbox

@@ -12,6 +12,8 @@ use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use tar::Archive;
 
+use crate::Engine;
+
 const IMAGE_TAR: &str = "/tmp/unbox-image.tar";
 
 pub fn create(args: crate::Create) -> eyre::Result<()> {
@@ -19,20 +21,22 @@ pub fn create(args: crate::Create) -> eyre::Result<()> {
     let new_root = format!("{}/{}{}", home, crate::IMAGES, args.name);
     if let Some(tar) = args.tar {
         unpack_tar(tar, &new_root)?;
-    } else if let Some(oci) = args.oci_image {
+    } else if let Some(oci) = args.image {
         // podman export $(podman create alpine) --output=alpine.tar
-        match args.engine {
-            Some(engine) if &engine == "podman" || &engine == "docker" => {
-                get_image(&engine, &oci)?;
-                unpack_tar(IMAGE_TAR.into(), &new_root)?;
-            }
-            _ => eyre::bail!("A valid engine has not been provided"),
-        }
+        match args
+            .engine
+            .ok_or_else(|| eyre::eyre!("A valid engine has not been provided"))?
+        {
+            Engine::Docker => get_image("docker", &oci)?,
+            Engine::Podman => get_image("podman", &oci)?,
+        };
+        unpack_tar(IMAGE_TAR.into(), &new_root)?;
     } else {
         eyre::bail!("No tar archive or valid OCI arguments have been provided")
     }
     let dirs = ["host", "proc", "sys", "dev"];
     create_dirs(&new_root, &dirs)?;
+    // TODO: create user
     File::create(format!("{new_root}/etc/resolv.conf")).expect("path exists and is writable");
     Ok(())
 }
