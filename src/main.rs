@@ -32,7 +32,9 @@ enum Subcommands {
     Create(Create),
     Enter(Enter),
     Run(Run),
-    Remove(Rm),
+    #[clap(alias = "rm")]
+    Remove(Remove),
+    #[clap(alias = "ls")]
     List(List),
 }
 
@@ -82,9 +84,9 @@ pub struct Run {
     args: Vec<String>,
 }
 
-/// Remove a unbox
+/// Remove an unbox
 #[derive(Args, PartialEq, Eq, Debug)]
-struct Rm {
+struct Remove {
     #[clap(value_parser)]
     /// name of the unbox
     name: String,
@@ -105,12 +107,12 @@ fn main() -> eyre::Result<()> {
         Subcommands::Create(args) => create::create(args),
         Subcommands::Enter(args) => run::enter(args),
         Subcommands::Run(args) => run::run(args),
-        Subcommands::Remove(args) => rm(args),
+        Subcommands::Remove(args) => remove(args),
         Subcommands::List(_) => list(),
     }
 }
 
-fn rm(args: Rm) -> eyre::Result<()> {
+fn remove(args: Remove) -> eyre::Result<()> {
     let home = env::var("HOME").wrap_err("Could not find current home")?;
     let image = format!("{}/{}/{}", home, IMAGES, args.name);
     std::fs::remove_dir_all(image).wrap_err("Could not remove the selected toolbox")
