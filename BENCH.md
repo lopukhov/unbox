@@ -12,7 +12,7 @@ a rough estimate of performance differences.
 
 # Nsbox vs unbox
 
-I was not able to get nsbox to work for this benchmark
+I was not able to get `nsbox` to work for this benchmark
 
 # Devbox vs unbox
 
