@@ -38,17 +38,17 @@ enum Subcommands {
     List(List),
 }
 
-/// Create the unbox rootfs from an image
+/// Create a toolbox rootfs from an image
 #[derive(Args, PartialEq, Eq, Debug)]
 pub struct Create {
     #[clap(value_parser)]
-    /// name of the unbox
+    /// Name of the toolbox
     name: String,
     #[clap(short, long, value_parser)]
-    /// path to the tarball
+    /// Path to the tarball
     tar: Option<PathBuf>,
     #[clap(short, long, value_parser)]
-    /// url of the OCI image
+    /// Url of the OCI image
     image: Option<String>,
     #[clap(short, long, value_parser)]
     /// OCI engine to extract the rootfs
@@ -62,37 +62,37 @@ enum Engine {
     Podman,
 }
 
-/// Enter the unbox
+/// Enter a toolbox
 #[derive(Args, PartialEq, Eq, Debug)]
 pub struct Enter {
     #[clap(value_parser)]
-    /// name of the unbox
+    /// Name of the toolbox
     name: String,
 }
 
-/// Run a command in the unbox
+/// Run a command in a toolbox
 #[derive(Args, PartialEq, Eq, Debug)]
 pub struct Run {
     #[clap(value_parser)]
-    /// name of the unbox
+    /// Name of the toolbox
     name: String,
     #[clap(value_parser)]
-    /// command to run
+    /// Command to run
     cmd: String,
-    /// command arguments
+    /// Command arguments
     #[clap(value_parser)]
     args: Vec<String>,
 }
 
-/// Remove an unbox
+/// Remove a toolbox
 #[derive(Args, PartialEq, Eq, Debug)]
 struct Remove {
     #[clap(value_parser)]
-    /// name of the unbox
+    /// Name of the toolbox
     name: String,
 }
 
-/// List unboxes
+/// List toolboxes
 #[derive(Args, PartialEq, Eq, Debug)]
 struct List {}
 

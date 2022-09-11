@@ -7,7 +7,7 @@ check:
   cargo clippy
   cargo test
 
-# Profile the appropiate benchmark
+# Profile the appropriate benchmark
 profile SUITE BENCH:
   cargo bench --bench {{SUITE}} -- --profile-time 60 {{BENCH}}
 
