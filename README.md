@@ -11,7 +11,14 @@ to use existing OCI images.
 
 ## Installation
 
-There are no distro packages available yet, so the preferred way to install is to download the appropriate binary from the [releases page.](https://github.com/lopukhov/unbox/releases)
+There are no distro packages available yet, so the preferred way to install is to download the appropriate binary from the [releases page.](https://github.com/lopukhov/unbox/releases).
+
+It is necessary to have `newuidmap` and `newgidmap` already installed in your system (should probably be installed already) and your user should have subordinate users and groups configured
+in `/etc/subuid` and `/etc/subgid` with the following content:
+
+```
+<your username>:100000:65536
+```
 
 ### From source
 

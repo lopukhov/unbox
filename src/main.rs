@@ -36,6 +36,7 @@ enum Subcommands {
     Remove(Remove),
     #[clap(alias = "ls")]
     List(List),
+    SetMappings(SetMappings),
 }
 
 /// Create a toolbox rootfs from an image
@@ -96,6 +97,15 @@ struct Remove {
 #[derive(Args, PartialEq, Eq, Debug)]
 struct List {}
 
+// Setup the uid and gid mappings inside the namespace
+/// Internal subcommand. Should not be used directly
+#[derive(Args, PartialEq, Eq, Debug)]
+struct SetMappings {
+    /// Command arguments
+    #[clap(value_parser)]
+    args: Vec<String>,
+}
+
 fn main() -> eyre::Result<()> {
     // color_eyre::install()?;
     color_eyre::config::HookBuilder::default()
@@ -109,6 +119,7 @@ fn main() -> eyre::Result<()> {
         Subcommands::Run(args) => run::run(args),
         Subcommands::Remove(args) => remove(args),
         Subcommands::List(_) => list(),
+        Subcommands::SetMappings(args) => namespaces::set_mappings(args),
     }
 }
 

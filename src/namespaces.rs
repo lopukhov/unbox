@@ -4,7 +4,9 @@
 
 use std::fmt::Display;
 use std::fs::{read_link, symlink_metadata};
+use std::io::Write;
 use std::path::Path;
+use std::process::{Child, Command, Stdio};
 
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
@@ -43,13 +45,31 @@ pub struct Pivoter;
 pub struct Toolbox;
 
 impl Namespace {
-    pub fn start(
-        flags: CloneFlags,
-        uid_map: &[Mapping],
-        gid_map: &[Mapping],
-    ) -> eyre::Result<Pivoter> {
+    pub fn start(flags: CloneFlags, mappings: &[Mapping]) -> eyre::Result<Pivoter> {
+        let subcmd = "set-mappings".to_string();
+        let pid = std::process::id().to_string();
+        let mut args = mappings
+            .into_iter()
+            .flat_map(|map| {
+                [
+                    map.inside.to_string(),
+                    map.outside.to_string(),
+                    map.len.to_string(),
+                ]
+                .into_iter()
+            })
+            .collect::<Vec<String>>();
+        let mut argv = Vec::with_capacity(args.len() + 1);
+        argv.push(subcmd);
+        argv.push(pid);
+        argv.append(&mut args);
+        let mut child = self_spawn(&argv).wrap_err("Could not spawn child to set up mappings")?;
+
         unshare(flags).wrap_err("Could not change namespace")?;
-        root_mappings(uid_map, gid_map)?;
+        writeln!(&mut child.stdin.as_ref().unwrap(), "unshare").wrap_err("communication failed")?;
+        child
+            .wait()
+            .wrap_err("Failed when waiting for the mapping to be set up")?;
         Ok(Pivoter)
     }
 }
@@ -82,42 +102,45 @@ impl Toolbox {
     where
         S: AsRef<OsStr>,
     {
-        use std::process::Command;
-        Command::new(cmd)
-            .args(args)
-            .spawn()
-            .wrap_err("Could not spawn the requested command")?
+        spawn(cmd, args)?
             .wait()
             .wrap_err("Error while waiting for child process")?;
         Ok(())
     }
 }
 
-fn root_mappings(uid_map: &[Mapping], gid_map: &[Mapping]) -> eyre::Result<()> {
-    use std::fs::File;
-    use std::io::prelude::*;
-    let pid = std::process::id();
+pub(crate) fn set_mappings(args: crate::SetMappings) -> eyre::Result<()> {
+    let mut input = String::with_capacity(7);
+    // We do not care about the input, only to check that we can continue
+    let _ = std::io::stdin().read_line(&mut input);
 
-    let mut setgroups = File::create(format!("/proc/{}/setgroups", pid))
-        .wrap_err("Could not create the setgroups")?;
-    writeln!(setgroups, "deny")?;
-
-    let mut uid_file =
-        File::create(format!("/proc/{}/uid_map", pid)).wrap_err("Could not create the uid_map")?;
-    uid_file.write_all(build_mappings(uid_map).as_bytes())?;
-
-    let mut gid_file =
-        File::create(format!("/proc/{}/gid_map", pid)).wrap_err("Could not create the gid_map")?;
-    gid_file.write_all(build_mappings(gid_map).as_bytes())?;
+    let mut uid_map = spawn("newuidmap", &args.args).wrap_err("Failure to write uid_map")?;
+    let mut gid_map = spawn("newgidmap", &args.args).wrap_err("Failure to write gid_map")?;
+    uid_map.wait().wrap_err("Failure to wait for uid_map")?;
+    gid_map.wait().wrap_err("Failure to wait for gid_map")?;
     Ok(())
 }
 
-fn build_mappings(map: &[Mapping]) -> String {
-    let mut s = String::with_capacity(10 * map.len());
-    for m in map {
-        s.push_str(&m.to_string());
-    }
-    s
+fn self_spawn<S>(args: &[S]) -> eyre::Result<Child>
+where
+    S: AsRef<OsStr>,
+{
+    Command::new("/proc/self/exe")
+        .args(args)
+        .stdin(Stdio::piped())
+        .spawn()
+        .wrap_err("Could not spawn the requested command")
+}
+
+fn spawn<C, A>(cmd: C, args: &[A]) -> eyre::Result<Child>
+where
+    C: AsRef<OsStr>,
+    A: AsRef<OsStr>,
+{
+    Command::new(cmd)
+        .args(args)
+        .spawn()
+        .wrap_err("Could not spawn the requested command")
 }
 
 fn bind_mount(source: &OsStr, target: &OsStr) -> eyre::Result<()> {

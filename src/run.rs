@@ -38,11 +38,18 @@ where
     home.push(user.name());
     env::set_var("HOME", home);
 
-    let mappings = [Mapping {
-        inside: 0,
-        outside: uid,
-        len: 1,
-    }];
+    let mappings = [
+        Mapping {
+            inside: 0,
+            outside: uid,
+            len: 1,
+        },
+        Mapping {
+            inside: 1,
+            outside: 100_000,
+            len: 65_536,
+        },
+    ];
     // TODO: allow to not have /home bind mounted
     let mounts = [
         ("/host/proc", "/proc"),
@@ -57,7 +64,7 @@ where
     .into_iter()
     .map(MountInfo::from);
 
-    let pivot = Namespace::start(flags, &mappings, &mappings)?;
+    let pivot = Namespace::start(flags, &mappings)?;
     let toolbox = pivot.pivot(new_root.as_ref(), old_root.as_ref())?;
     toolbox.mounts(mounts)?;
     toolbox.hostname(image)?;
