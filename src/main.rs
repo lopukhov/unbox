@@ -36,6 +36,7 @@ enum Subcommands {
     Remove(Remove),
     #[clap(alias = "ls")]
     List(List),
+    #[clap(hide = true)]
     SetMappings(SetMappings),
 }
 
