@@ -5,7 +5,7 @@
 use std::fmt::Display;
 use std::fs::{read_link, symlink_metadata};
 use std::io::Write;
-use std::path::Path;
+use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 
 use color_eyre::eyre;
@@ -14,13 +14,13 @@ use nix::sched::{unshare, CloneFlags};
 use nix::unistd::{pivot_root, sethostname};
 use std::ffi::{OsStr, OsString};
 
-pub struct Mapping {
-    pub inside: u32,
-    pub outside: u32,
-    pub len: u32,
+pub struct Mapping<'a> {
+    pub inside: &'a str,
+    pub outside: &'a str,
+    pub len: &'a str,
 }
 
-impl Display for Mapping {
+impl Display for Mapping<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{} {} {}", self.inside, self.outside, self.len)
     }
@@ -40,28 +40,22 @@ impl From<(&str, &str)> for MountInfo {
     }
 }
 
+// TODO: properly implement Typestate
 pub struct Namespace;
 pub struct Pivoter;
 pub struct Toolbox;
 
 impl Namespace {
-    pub fn start(flags: CloneFlags, mappings: &[Mapping]) -> eyre::Result<Pivoter> {
-        let subcmd = "set-mappings".to_string();
+    pub fn start(flags: CloneFlags, mappings: &[Mapping<'_>]) -> eyre::Result<Pivoter> {
+        let subcmd = "set-mappings";
         let pid = std::process::id().to_string();
         let mut args = mappings
-            .into_iter()
-            .flat_map(|map| {
-                [
-                    map.inside.to_string(),
-                    map.outside.to_string(),
-                    map.len.to_string(),
-                ]
-                .into_iter()
-            })
-            .collect::<Vec<String>>();
+            .iter()
+            .flat_map(|map| [map.inside, map.outside, map.len].into_iter())
+            .collect::<Vec<&str>>();
         let mut argv = Vec::with_capacity(args.len() + 1);
         argv.push(subcmd);
-        argv.push(pid);
+        argv.push(&pid);
         argv.append(&mut args);
         let mut child = self_spawn(&argv).wrap_err("Could not spawn child to set up mappings")?;
 
@@ -160,15 +154,18 @@ fn bind_mount(source: &OsStr, target: &OsStr) -> eyre::Result<()> {
 fn follow_symlink(path: OsString) -> OsString {
     match symlink_metadata(&path) {
         Ok(meta) if meta.is_symlink() => {
+            let path = PathBuf::from(path);
             let link = read_link(&path).expect("is a valid symlink");
-            let mut real = OsString::with_capacity(path.len() + link.capacity());
-            let parent = <OsString as AsRef<Path>>::as_ref(&path)
-                .parent()
-                .expect("path has parent");
-            real.push(parent);
-            real.push("/");
-            real.push(link);
-            real
+            if link.is_absolute() {
+                link.into()
+            } else {
+                let mut real = OsString::with_capacity(path.capacity() + link.capacity());
+                let parent = path.parent().expect("path has parent");
+                real.push(parent);
+                real.push("/");
+                real.push(link);
+                real
+            }
         }
         _ => path,
     }

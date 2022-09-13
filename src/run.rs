@@ -27,12 +27,14 @@ fn nsexec<S>(image: &str, cmd: S, args: &[S]) -> eyre::Result<()>
 where
     S: AsRef<OsStr>,
 {
+    // TODO: clean this up with config file
     let home = env::var("HOME").wrap_err("Could not find current home")?;
     let flags = CloneFlags::CLONE_NEWUSER | CloneFlags::CLONE_NEWUTS | CloneFlags::CLONE_NEWNS;
     let new_root = format!("{}/{}{}", home, crate::IMAGES, image);
     let old_root = format!("{new_root}/host");
 
     let uid = users::get_current_uid();
+    let s_uid = uid.to_string();
     let user = users::get_user_by_uid(uid).expect("user exists");
     let mut home = OsString::from("/home/");
     home.push(user.name());
@@ -40,14 +42,14 @@ where
 
     let mappings = [
         Mapping {
-            inside: 0,
-            outside: uid,
-            len: 1,
+            inside: "0",
+            outside: &s_uid,
+            len: "1",
         },
         Mapping {
-            inside: 1,
-            outside: 100_000,
-            len: 65_536,
+            inside: "1",
+            outside: "100_000",
+            len: "65_536",
         },
     ];
     // TODO: allow to not have /home bind mounted

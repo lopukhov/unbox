@@ -16,6 +16,7 @@ use tar::Archive;
 
 use crate::Engine;
 
+// TODO: fix race condition
 const IMAGE_TAR: &str = "/tmp/unbox-image.tar";
 
 pub fn create(args: crate::Create) -> eyre::Result<()> {
@@ -49,6 +50,7 @@ fn unpack_tar(tar: PathBuf, new_root: &str) -> eyre::Result<()> {
         "There is already an image with that name"
     );
     let archive = File::open(tar).wrap_err("Could not open the tar file")?;
+    // TODO: unpack with sorted directories
     Archive::new(archive)
         .unpack(new_root)
         .wrap_err("Could not unpack tar file")
