@@ -10,11 +10,12 @@ keywords = ["containers", "toolbox", "unbox", "linux"]
 categories = ["virtualization"]
 
 [dependencies]
-nix = "0.25"
+clap = { version = "3.2", features = ["derive"] }
 color-eyre = { version = "0.6", default-features = false }
+indicatif = "0.17.0"
+nix = "0.25"
 tar = "0.4"
 users = "0.11"
-clap = { version = "3.2", features = ["derive"] }
 
 [profile.optimized]
 inherits = "release"
