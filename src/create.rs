@@ -4,9 +4,11 @@
 
 use std::env;
 use std::ffi::OsStr;
+use std::fmt::Display;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::process::Output;
+use std::time::Duration;
 
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
@@ -65,8 +67,18 @@ fn get_image(engine: &str, url: &str) -> eyre::Result<()> {
 fn spawn<S>(cmd: S, args: &[S]) -> eyre::Result<Output>
 where
     S: AsRef<OsStr>,
+    S: Display,
 {
     use std::process::Command;
+
+    use indicatif::{ProgressBar, ProgressStyle};
+
+    let style = ProgressStyle::default_spinner()
+        .template("{msg} {spinner}")
+        .expect("valid template");
+    let spinner = ProgressBar::new_spinner().with_style(style);
+    spinner.enable_steady_tick(Duration::from_millis(50));
+    spinner.set_message(format!("Creating toolbox: {} {}", cmd, args[0]));
     Command::new(cmd)
         .args(args)
         .output()
