@@ -16,9 +16,6 @@ use tar::Archive;
 
 use crate::Engine;
 
-// TODO: fix race condition
-const IMAGE_TAR: &str = "/tmp/unbox-image.tar";
-
 pub fn create(args: crate::Create) -> eyre::Result<()> {
     let home = env::var("HOME").wrap_err("Could not find current home")?;
     let new_root = format!("{}/{}{}", home, crate::IMAGES, args.name);
@@ -26,14 +23,15 @@ pub fn create(args: crate::Create) -> eyre::Result<()> {
         unpack_tar(tar, &new_root)?;
     } else if let Some(oci) = args.image {
         // podman export $(podman create alpine) --output=alpine.tar
+        let tar_file = format!("/tmp/unbox-{}-image.tar", args.name);
         match args
             .engine
             .ok_or_else(|| eyre::eyre!("A valid engine has not been provided"))?
         {
-            Engine::Docker => get_image("docker", &oci)?,
-            Engine::Podman => get_image("podman", &oci)?,
+            Engine::Docker => get_image("docker", &oci, &tar_file)?,
+            Engine::Podman => get_image("podman", &oci, &tar_file)?,
         };
-        unpack_tar(IMAGE_TAR.into(), &new_root)?;
+        unpack_tar(tar_file.into(), &new_root)?;
     } else {
         eyre::bail!("No tar archive or valid OCI arguments have been provided")
     }
@@ -56,12 +54,12 @@ fn unpack_tar(tar: PathBuf, new_root: &str) -> eyre::Result<()> {
         .wrap_err("Could not unpack tar file")
 }
 
-fn get_image(engine: &str, url: &str) -> eyre::Result<()> {
+fn get_image(engine: &str, url: &str, tar_file: &str) -> eyre::Result<()> {
     let cid = spawn(engine, &["create", url])?.stdout;
     let cid = std::str::from_utf8(&cid)
         .expect("Podman/Docker gives valid utf8 output")
         .trim();
-    spawn(engine, &["export", cid, "--output", IMAGE_TAR])?;
+    spawn(engine, &["export", cid, "--output", tar_file])?;
     spawn(engine, &["rm", cid])?;
     Ok(())
 }
