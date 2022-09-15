@@ -12,15 +12,19 @@ use std::time::Duration;
 
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
+use indicatif::ProgressBar;
+use nix::sched::CloneFlags;
+use std::fs::create_dir_all;
 use tar::Archive;
 
+use crate::namespaces::{Mapping, Namespace};
 use crate::Engine;
 
 pub fn create(args: crate::Create) -> eyre::Result<()> {
     let home = env::var("HOME").wrap_err("Could not find current home")?;
     let new_root = format!("{}/{}{}", home, crate::IMAGES, args.name);
     if let Some(tar) = args.tar {
-        unpack_tar(tar, &new_root)?;
+        setup_new_root(new_root, tar)
     } else if let Some(oci) = args.image {
         // podman export $(podman create alpine) --output=alpine.tar
         let tar_file = format!("/tmp/unbox-{}-image.tar", args.name);
@@ -31,14 +35,32 @@ pub fn create(args: crate::Create) -> eyre::Result<()> {
             Engine::Docker => get_image("docker", &oci, &tar_file)?,
             Engine::Podman => get_image("podman", &oci, &tar_file)?,
         };
-        unpack_tar(tar_file.into(), &new_root)?;
+        setup_new_root(new_root, tar_file.into())
     } else {
-        eyre::bail!("No tar archive or valid OCI arguments have been provided")
+        Err(eyre::eyre!(
+            "No tar archive or valid OCI arguments have been provided"
+        ))
     }
+}
+
+fn setup_new_root(new_root: String, tar: PathBuf) -> eyre::Result<()> {
+    let flags = CloneFlags::CLONE_NEWUSER;
+    let uid = users::get_current_uid().to_string();
+    let ref mappings = [Mapping {
+        inside: "0",
+        outside: &uid,
+        len: "1",
+    }];
+    Namespace::start(flags, mappings)?;
+    let spinner = get_spinner();
+    spinner.set_message("Unpacking tar file");
+    unpack_tar(tar, &new_root)?;
+    spinner.set_message("Setting up files and directories");
     let dirs = ["host", "proc", "sys", "dev"];
     create_dirs(&new_root, &dirs)?;
-    // TODO: create user
     File::create(format!("{new_root}/etc/resolv.conf")).expect("path exists and is writable");
+    // TODO: create user
+    spinner.finish_and_clear();
     Ok(())
 }
 
@@ -47,14 +69,32 @@ fn unpack_tar(tar: PathBuf, new_root: &str) -> eyre::Result<()> {
         !Path::new(new_root).exists(),
         "There is already an image with that name"
     );
+    create_dir_all(new_root).wrap_err("Could not create the new root directory")?;
     let archive = File::open(tar).wrap_err("Could not open the tar file")?;
-    // TODO: unpack with sorted directories
-    Archive::new(archive)
-        .unpack(new_root)
-        .wrap_err("Could not unpack tar file")
+    let mut tar = Archive::new(archive);
+    let mut dirs = Vec::new();
+    for entry in tar.entries()? {
+        let mut entry = entry?;
+        let path = entry.path()?;
+        if path.is_dir() {
+            dirs.push(entry);
+        } else {
+            entry
+                .unpack_in(new_root)
+                .wrap_err("Could not unpack entry")?;
+        }
+    }
+    dirs.sort_unstable_by(|a, b| b.path_bytes().len().cmp(&a.path_bytes().len()));
+    for mut dir in dirs {
+        dir.unpack_in(new_root)
+            .wrap_err("Could not unpack a directory")?;
+    }
+    Ok(())
 }
 
 fn get_image(engine: &str, url: &str, tar_file: &str) -> eyre::Result<()> {
+    let spinner = get_spinner();
+    spinner.set_message("Downloading image");
     let cid = spawn(engine, &["create", url])?.stdout;
     let cid = std::str::from_utf8(&cid)
         .expect("Podman/Docker gives valid utf8 output")
@@ -70,24 +110,24 @@ where
     S: Display,
 {
     use std::process::Command;
-
-    use indicatif::{ProgressBar, ProgressStyle};
-
-    let style = ProgressStyle::default_spinner()
-        .template("{msg} {spinner}")
-        .expect("valid template");
-    let spinner = ProgressBar::new_spinner().with_style(style);
-    spinner.enable_steady_tick(Duration::from_millis(50));
-    spinner.set_message(format!("Creating toolbox: {} {}", cmd, args[0]));
     Command::new(cmd)
         .args(args)
         .output()
         .wrap_err("Could not execute the provided engine")
 }
 
+fn get_spinner() -> ProgressBar {
+    use indicatif::ProgressStyle;
+
+    let style = ProgressStyle::default_spinner()
+        .template("{msg} {spinner}")
+        .expect("valid template");
+    let spinner = ProgressBar::new_spinner().with_style(style);
+    spinner.enable_steady_tick(Duration::from_millis(50));
+    spinner
+}
+
 fn create_dirs(root: &str, dirs: &[&str]) -> eyre::Result<()> {
-    use std::fs::create_dir_all;
-    create_dir_all(root).wrap_err("Could not create a directory inside the new root image")?;
     for dir in dirs {
         create_dir_all(format!("{root}/{dir}")).expect("path exists and is writable");
     }

@@ -48,8 +48,8 @@ where
         },
         Mapping {
             inside: "1",
-            outside: "100_000",
-            len: "65_536",
+            outside: "100000",
+            len: "65536",
         },
     ];
     // TODO: allow to not have /home bind mounted
