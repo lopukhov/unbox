@@ -3,47 +3,49 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use color_eyre::eyre;
-use color_eyre::eyre::WrapErr;
 use nix::sched::CloneFlags;
 use std::env;
-use std::ffi::{OsStr, OsString};
 
-use crate::namespaces::{Mapping, MountInfo, Namespace};
+use crate::config::Config;
+use crate::namespaces::{Mapping, Namespace};
+
+struct Command<'s> {
+    cmd: String,
+    args: &'s [String],
+}
 
 pub fn enter(args: crate::Enter) -> eyre::Result<()> {
-    // TODO: Have a fallback for when `$SHELL` does not exist in the image
-    let shell = match env::var_os("SHELL") {
-        Some(s) => s,
-        None => "/bin/sh".into(),
+    let config = match Config::read(&args.name) {
+        Ok(config) => config,
+        Err(_) => Config::new(&args.name)?,
     };
-    nsexec(&args.name, shell, &[])
+    nsexec(config, None)
 }
 
 pub fn run(args: crate::Run) -> eyre::Result<()> {
-    nsexec(&args.name, args.cmd, &args.args[..])
+    let config = match Config::read(&args.name) {
+        Ok(config) => config,
+        Err(_) => Config::new(&args.name)?,
+    };
+    let cmd = Command {
+        cmd: args.cmd,
+        args: &args.args,
+    };
+    nsexec(config, Some(cmd))
 }
 
-fn nsexec<S>(image: &str, cmd: S, args: &[S]) -> eyre::Result<()>
-where
-    S: AsRef<OsStr>,
-{
-    // TODO: clean this up with config file
-    let home = env::var("HOME").wrap_err("Could not find current home")?;
+fn nsexec(config: Config, cmd: Option<Command<'_>>) -> eyre::Result<()> {
     let flags = CloneFlags::CLONE_NEWUSER | CloneFlags::CLONE_NEWUTS | CloneFlags::CLONE_NEWNS;
-    let new_root = format!("{}/{}{}", home, crate::IMAGES, image);
+    let new_root = &config.image;
     let old_root = format!("{new_root}/host");
 
-    let uid = users::get_current_uid();
-    let s_uid = uid.to_string();
-    let user = users::get_user_by_uid(uid).expect("user exists");
-    let mut home = OsString::from("/home/");
-    home.push(user.name());
-    env::set_var("HOME", home);
+    let uid = users::get_current_uid().to_string();
+    env::set_var("HOME", &config.home);
 
     let mappings = [
         Mapping {
             inside: "0",
-            outside: &s_uid,
+            outside: &uid,
             len: "1",
         },
         Mapping {
@@ -52,23 +54,15 @@ where
             len: "65536",
         },
     ];
-    // TODO: allow to not have /home bind mounted
-    let mounts = [
-        ("/host/proc", "/proc"),
-        ("/host/sys", "/sys"),
-        ("/host/tmp", "/tmp"),
-        ("/host/dev", "/dev"),
-        ("/host/run", "/run"),
-        ("/host/home", "/home"),
-        ("/host/etc/hosts", "/etc/hosts"),
-        ("/host/etc/resolv.conf", "/etc/resolv.conf"),
-    ]
-    .into_iter()
-    .map(MountInfo::from);
+    let mounts = config.mounts().filter_map(|m| m.ok());
 
     let pivot = Namespace::start(flags, &mappings)?;
     let toolbox = pivot.pivot(new_root.as_ref(), old_root.as_ref())?;
     toolbox.mounts(mounts)?;
-    toolbox.hostname(image)?;
-    toolbox.spawn(cmd, args)
+    toolbox.hostname(&config.hostname)?;
+    if let Some(cmd) = cmd {
+        toolbox.spawn(cmd.cmd, cmd.args)
+    } else {
+        toolbox.spawn(config.shell, &[])
+    }
 }

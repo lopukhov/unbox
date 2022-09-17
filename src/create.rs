@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::env;
 use std::ffi::OsStr;
 use std::fmt::Display;
 use std::fs::File;
@@ -17,12 +16,16 @@ use nix::sched::CloneFlags;
 use std::fs::create_dir_all;
 use tar::Archive;
 
+use crate::config::Config;
 use crate::namespaces::{Mapping, Namespace};
 use crate::Engine;
 
 pub fn create(args: crate::Create) -> eyre::Result<()> {
-    let home = env::var("HOME").wrap_err("Could not find current home")?;
-    let new_root = format!("{}/{}{}", home, crate::IMAGES, args.name);
+    // TODO: shell arg
+    let config = Config::new(&args.name)?;
+    config.write(&args.name)?;
+    let new_root = config.image;
+
     if let Some(tar) = args.tar {
         setup_new_root(new_root, tar)
     } else if let Some(oci) = args.image {
@@ -46,7 +49,7 @@ pub fn create(args: crate::Create) -> eyre::Result<()> {
 fn setup_new_root(new_root: String, tar: PathBuf) -> eyre::Result<()> {
     let flags = CloneFlags::CLONE_NEWUSER;
     let uid = users::get_current_uid().to_string();
-    let ref mappings = [Mapping {
+    let mappings = &[Mapping {
         inside: "0",
         outside: &uid,
         len: "1",
@@ -84,7 +87,7 @@ fn unpack_tar(tar: PathBuf, new_root: &str) -> eyre::Result<()> {
                 .wrap_err("Could not unpack entry")?;
         }
     }
-    dirs.sort_unstable_by(|a, b| b.path_bytes().len().cmp(&a.path_bytes().len()));
+    dirs.sort_unstable_by_key(|b| std::cmp::Reverse(b.path_bytes().len()));
     for mut dir in dirs {
         dir.unpack_in(new_root)
             .wrap_err("Could not unpack a directory")?;

@@ -10,14 +10,16 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
+use config::Config;
 use std::env;
 use std::path::PathBuf;
 
+mod config;
 mod create;
 mod namespaces;
 mod run;
 
-const IMAGES: &str = ".local/share/unbox/images/";
+const STORAGE: &str = ".local/share/unbox";
 
 /// Unshare a toolbox
 #[derive(Parser, PartialEq, Eq, Debug)]
@@ -125,14 +127,14 @@ fn main() -> eyre::Result<()> {
 }
 
 fn remove(args: Remove) -> eyre::Result<()> {
-    let home = env::var("HOME").wrap_err("Could not find current home")?;
-    let image = format!("{}/{}/{}", home, IMAGES, args.name);
-    std::fs::remove_dir_all(image).wrap_err("Could not remove the selected toolbox")
+    // TODO: remove meta file
+    let config = Config::read(&args.name)?;
+    std::fs::remove_dir_all(config.image).wrap_err("Could not remove the selected toolbox")
 }
 
 fn list() -> eyre::Result<()> {
     let home = env::var("HOME").wrap_err("Could not find current home")?;
-    let storage = format!("{home}/{IMAGES}");
+    let storage = format!("{home}/{STORAGE}/images");
     let paths = std::fs::read_dir(storage).wrap_err("Could not read images directory")?;
     paths
         .filter_map(|p| p.ok())

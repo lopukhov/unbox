@@ -14,6 +14,8 @@ use nix::sched::{unshare, CloneFlags};
 use nix::unistd::{pivot_root, sethostname};
 use std::ffi::{OsStr, OsString};
 
+use crate::config::MountInfo;
+
 pub struct Mapping<'a> {
     pub inside: &'a str,
     pub outside: &'a str,
@@ -23,20 +25,6 @@ pub struct Mapping<'a> {
 impl Display for Mapping<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{} {} {}", self.inside, self.outside, self.len)
-    }
-}
-
-pub struct MountInfo {
-    source: OsString,
-    target: OsString,
-}
-
-impl From<(&str, &str)> for MountInfo {
-    fn from(info: (&str, &str)) -> Self {
-        MountInfo {
-            source: info.0.into(),
-            target: info.1.into(),
-        }
     }
 }
 
