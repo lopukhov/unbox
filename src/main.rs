@@ -57,6 +57,9 @@ pub struct Create {
     #[clap(short, long, value_parser)]
     /// OCI engine to extract the rootfs
     engine: Option<Engine>,
+    #[clap(short, long, value_parser)]
+    /// Default shell for the image to be created
+    shell: Option<String>,
 }
 
 /// OCI engine to extract the rootfs (docker or podman)

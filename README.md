@@ -75,6 +75,12 @@ For example to create an Arch Linux toolbox from its official OCI image using `p
 $ unbox create archlinux -i docker.io/archlinux:latest -e podman
 ```
 
+In any case it is possible to assign the default shell for the new image at creation time, in case the image does not have the current users' shell:
+
+```sh
+$ unbox create alpine -i docker.io/alpine:latest -e podman -s /bin/sh
+```
+
 ### Enter
 
 To open an interactive shell inside an existing toolbox:

@@ -21,8 +21,10 @@ use crate::namespaces::{Mapping, Namespace};
 use crate::Engine;
 
 pub fn create(args: crate::Create) -> eyre::Result<()> {
-    // TODO: shell arg
-    let config = Config::new(&args.name)?;
+    let mut config = Config::new(&args.name)?;
+    if let Some(sh) = args.shell {
+        config.shell = sh;
+    }
     config.write(&args.name)?;
     let new_root = config.image;
 
