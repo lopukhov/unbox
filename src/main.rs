@@ -32,6 +32,8 @@ struct UnBox {
 #[derive(Subcommand, PartialEq, Eq, Debug)]
 enum Subcommands {
     Create(Create),
+    #[clap(alias = "cfg")]
+    Configure(Configure),
     Enter(Enter),
     Run(Run),
     #[clap(alias = "rm")]
@@ -60,6 +62,23 @@ pub struct Create {
     #[clap(short, long, value_parser)]
     /// Default shell for the image to be created
     shell: Option<String>,
+}
+
+/// Configure a toolbox creating a new meta-file if needed
+#[derive(Args, PartialEq, Eq, Debug)]
+pub struct Configure {
+    #[clap(value_parser)]
+    /// Name of the toolbox
+    name: String,
+    #[clap(short, long, value_parser)]
+    /// Default shell for the image
+    shell: Option<String>,
+    #[clap(short = 'n', long, value_parser)]
+    /// Default hostname for the image
+    hostname: Option<String>,
+    #[clap(long, value_parser)]
+    /// Default home for the image
+    home: Option<String>,
 }
 
 /// OCI engine to extract the rootfs (docker or podman)
@@ -123,6 +142,7 @@ fn main() -> eyre::Result<()> {
         Subcommands::Create(args) => create::create(args),
         Subcommands::Enter(args) => run::enter(args),
         Subcommands::Run(args) => run::run(args),
+        Subcommands::Configure(args) => config::configure(args),
         Subcommands::Remove(args) => remove(args),
         Subcommands::List(_) => list(),
         Subcommands::SetMappings(args) => namespaces::set_mappings(args),

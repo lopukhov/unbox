@@ -11,6 +11,24 @@ use std::fs::File;
 use toml::map::Keys;
 use toml::value::{Table, Value};
 
+pub fn configure(args: crate::Configure) -> eyre::Result<()> {
+    let mut config = match Config::read(&args.name) {
+        Ok(config) => config,
+        Err(_) => Config::new(&args.name)?,
+    };
+    if let Some(sh) = args.shell {
+        config.shell = sh;
+    }
+    if let Some(host) = args.hostname {
+        config.hostname = host;
+    }
+    if let Some(home) = args.home {
+        config.home = home;
+    }
+    config.write(&args.name)?;
+    Ok(())
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
     pub shell: String,
