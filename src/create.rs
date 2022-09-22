@@ -22,11 +22,15 @@ use crate::Engine;
 
 pub fn create(args: crate::Create) -> eyre::Result<()> {
     let mut config = Config::new(&args.name)?;
+    let new_root = &config.image;
+    eyre::ensure!(
+        !Path::new(new_root).exists(),
+        "There is already an image with that name"
+    );
     if let Some(sh) = args.shell {
         config.shell = sh;
     }
     config.write(&args.name)?;
-    let new_root = config.image;
 
     if let Some(tar) = args.tar {
         setup_new_root(new_root, tar)
@@ -48,7 +52,7 @@ pub fn create(args: crate::Create) -> eyre::Result<()> {
     }
 }
 
-fn setup_new_root(new_root: String, tar: PathBuf) -> eyre::Result<()> {
+fn setup_new_root(new_root: &str, tar: PathBuf) -> eyre::Result<()> {
     let flags = CloneFlags::CLONE_NEWUSER;
     let uid = users::get_current_uid().to_string();
     let mappings = &[Mapping {
@@ -59,10 +63,10 @@ fn setup_new_root(new_root: String, tar: PathBuf) -> eyre::Result<()> {
     Namespace::start(flags, mappings)?;
     let spinner = get_spinner();
     spinner.set_message("Unpacking tar file");
-    unpack_tar(tar, &new_root)?;
+    unpack_tar(tar, new_root)?;
     spinner.set_message("Setting up files and directories");
     let dirs = ["host", "proc", "sys", "dev"];
-    create_dirs(&new_root, &dirs)?;
+    create_dirs(new_root, &dirs)?;
     File::create(format!("{new_root}/etc/resolv.conf")).expect("path exists and is writable");
     // TODO: create user
     spinner.finish_and_clear();
@@ -70,10 +74,6 @@ fn setup_new_root(new_root: String, tar: PathBuf) -> eyre::Result<()> {
 }
 
 fn unpack_tar(tar: PathBuf, new_root: &str) -> eyre::Result<()> {
-    eyre::ensure!(
-        !Path::new(new_root).exists(),
-        "There is already an image with that name"
-    );
     create_dir_all(new_root).wrap_err("Could not create the new root directory")?;
     let archive = File::open(tar).wrap_err("Could not open the tar file")?;
     let mut tar = Archive::new(archive);

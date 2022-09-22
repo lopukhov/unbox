@@ -7,15 +7,13 @@ use color_eyre::eyre::WrapErr;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::ffi::OsString;
-use std::fs::File;
+use std::fs::{create_dir_all, File};
 use toml::map::Keys;
 use toml::value::{Table, Value};
 
 pub fn configure(args: crate::Configure) -> eyre::Result<()> {
-    let mut config = match Config::read(&args.name) {
-        Ok(config) => config,
-        Err(_) => Config::new(&args.name)?,
-    };
+    let mut config =
+        Config::read_or_new(&args.name).wrap_err("Could not get configuration for the toolbox")?;
     if let Some(sh) = args.shell {
         config.shell = sh;
     }
@@ -64,11 +62,20 @@ impl Config {
         Ok(config)
     }
 
+    pub fn read_or_new(name: &str) -> eyre::Result<Self> {
+        match Config::read(name) {
+            Ok(config) => Ok(config),
+            Err(_) => Config::new(name),
+        }
+    }
+
     pub fn write(&self, name: &str) -> eyre::Result<()> {
         use std::io::prelude::*;
         let home = env::var("HOME").wrap_err("Could not find current home")?;
-        let storage = format!("{home}/{}/meta/{name}.toml", crate::STORAGE);
-        let content = toml::to_string(&self).expect("valid toml config");
+        let meta = format!("{home}/{}/meta/", crate::STORAGE);
+        create_dir_all(&meta).wrap_err("Could not create meta directory")?;
+        let storage = format!("{meta}/{name}.toml");
+        let content = toml::to_string(self).expect("valid toml config");
         let mut file = File::create(storage).wrap_err("Could not create meta file")?;
         file.write_all(content.as_bytes())?;
         Ok(())

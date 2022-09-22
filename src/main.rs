@@ -12,7 +12,10 @@ use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use config::Config;
 use std::env;
+use std::fs::Permissions;
+use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
+use walkdir::WalkDir;
 
 mod config;
 mod create;
@@ -150,8 +153,22 @@ fn main() -> eyre::Result<()> {
 }
 
 fn remove(args: Remove) -> eyre::Result<()> {
-    // TODO: remove meta file
-    let config = Config::read(&args.name)?;
+    let home = env::var("HOME").wrap_err("Could not find current home")?;
+    let meta = format!("{home}/{}/meta/{}.toml", crate::STORAGE, &args.name);
+    let config =
+        Config::read_or_new(&args.name).wrap_err("Could not get configuration for the toolbox")?;
+    for entry in WalkDir::new(&config.image)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let perms = Permissions::from_mode(0o777);
+        // We change the permissions on directories to avoid errors on read-only directories
+        if entry.file_type().is_dir() {
+            std::fs::set_permissions(entry.path(), perms).expect("we own the files");
+        }
+    }
+    // The error is ignored because if the file does not exist we do not need to remove it.
+    let _ = std::fs::remove_file(meta);
     std::fs::remove_dir_all(config.image).wrap_err("Could not remove the selected toolbox")
 }
 

@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use color_eyre::eyre;
+use color_eyre::eyre::WrapErr;
 use nix::sched::CloneFlags;
 use std::env;
 
@@ -15,18 +16,14 @@ struct Command<'s> {
 }
 
 pub fn enter(args: crate::Enter) -> eyre::Result<()> {
-    let config = match Config::read(&args.name) {
-        Ok(config) => config,
-        Err(_) => Config::new(&args.name)?,
-    };
+    let config =
+        Config::read_or_new(&args.name).wrap_err("Could not get configuration for the toolbox")?;
     nsexec(config, None)
 }
 
 pub fn run(args: crate::Run) -> eyre::Result<()> {
-    let config = match Config::read(&args.name) {
-        Ok(config) => config,
-        Err(_) => Config::new(&args.name)?,
-    };
+    let config =
+        Config::read_or_new(&args.name).wrap_err("Could not get configuration for the toolbox")?;
     let cmd = Command {
         cmd: args.cmd,
         args: &args.args,
