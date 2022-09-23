@@ -19,6 +19,7 @@ use walkdir::WalkDir;
 
 mod config;
 mod create;
+mod list;
 mod namespaces;
 mod run;
 
@@ -147,7 +148,7 @@ fn main() -> eyre::Result<()> {
         Subcommands::Run(args) => run::run(args),
         Subcommands::Configure(args) => config::configure(args),
         Subcommands::Remove(args) => remove(args),
-        Subcommands::List(_) => list(),
+        Subcommands::List(_) => list::list(),
         Subcommands::SetMappings(args) => namespaces::set_mappings(args),
     }
 }
@@ -170,14 +171,4 @@ fn remove(args: Remove) -> eyre::Result<()> {
     // The error is ignored because if the file does not exist we do not need to remove it.
     let _ = std::fs::remove_file(meta);
     std::fs::remove_dir_all(config.image).wrap_err("Could not remove the selected toolbox")
-}
-
-fn list() -> eyre::Result<()> {
-    let home = env::var("HOME").wrap_err("Could not find current home")?;
-    let storage = format!("{home}/{STORAGE}/images");
-    let paths = std::fs::read_dir(storage).wrap_err("Could not read images directory")?;
-    paths
-        .filter_map(|p| p.ok())
-        .for_each(|p| println!("{}", p.file_name().to_string_lossy()));
-    Ok(())
 }

@@ -27,6 +27,7 @@ pub fn create(args: crate::Create) -> eyre::Result<()> {
         !Path::new(new_root).exists(),
         "There is already an image with that name"
     );
+    create_dir_all(new_root).wrap_err("Could not create the new root directory")?;
     if let Some(sh) = args.shell {
         config.shell = sh;
     }
@@ -74,7 +75,6 @@ fn setup_new_root(new_root: &str, tar: PathBuf) -> eyre::Result<()> {
 }
 
 fn unpack_tar(tar: PathBuf, new_root: &str) -> eyre::Result<()> {
-    create_dir_all(new_root).wrap_err("Could not create the new root directory")?;
     let archive = File::open(tar).wrap_err("Could not open the tar file")?;
     let mut tar = Archive::new(archive);
     let mut dirs = Vec::new();
