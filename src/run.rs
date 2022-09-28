@@ -69,8 +69,8 @@ pub fn nsexec(args: Execute) -> eyre::Result<()> {
     toolbox.mounts(mounts)?;
     toolbox.hostname(&config.hostname)?;
     match args {
-        Execute::Enter(_) => toolbox.spawn(config.shell, &[]),
-        Execute::Run(args) => toolbox.spawn(args.cmd, &args.args),
+        Execute::Enter(_) => toolbox.spawn(config.shell, &[]).map(|_| ()),
+        Execute::Run(args) => toolbox.spawn(args.cmd, &args.args).map(|_| ()),
     }
 }
 

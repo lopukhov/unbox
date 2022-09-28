@@ -46,7 +46,8 @@ pub struct Toolbox;
 impl Namespace {
     pub fn start(flags: CloneFlags, mappings: &[Mapping<'_>]) -> eyre::Result<Pivoter> {
         // TODO: change this for a daemon
-        let argv = mappings_argv(mappings);
+        let pid = std::process::id().to_string();
+        let argv = mappings_argv(&pid, mappings);
         let mut child = self_spawn(&argv).wrap_err("Could not spawn child to set up mappings")?;
 
         unshare(flags).wrap_err("Could not change namespace")?;
@@ -59,16 +60,15 @@ impl Namespace {
     }
 }
 
-fn mappings_argv<'a>(mappings: &[Mapping<'a>]) -> Vec<&'a str> {
+fn mappings_argv<'a>(pid: &'a str, mappings: &[Mapping<'a>]) -> Vec<&'a str> {
     let subcmd = "set-mappings";
-    let pid = std::process::id().to_string();
     let mut args = mappings
         .iter()
         .flat_map(|map| [map.inside, map.outside, map.len].into_iter())
         .collect::<Vec<&str>>();
     let mut argv = Vec::with_capacity(args.len() + 1);
     argv.push(subcmd);
-    argv.push(&pid);
+    argv.push(pid);
     argv.append(&mut args);
     argv
 }

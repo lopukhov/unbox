@@ -46,7 +46,7 @@ fn main() -> eyre::Result<()> {
     color_eyre::config::HookBuilder::default()
         .display_env_section(false)
         .install()?;
-    // TODO: setup basic directories
+    config::setup()?;
     let cmd = UnBox::parse();
 
     match cmd.subcommands {

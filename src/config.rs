@@ -48,6 +48,15 @@ pub fn configure(args: Configure) -> eyre::Result<()> {
     Ok(())
 }
 
+pub fn setup() -> eyre::Result<()> {
+    use std::env::var;
+    let home = var("HOME").wrap_err("Could not find current home")?;
+    let meta = format!("{home}/{}/meta/", STORAGE);
+    let images = format!("{home}/{}/images/", STORAGE);
+    create_dir_all(&meta).wrap_err("Could not create meta directory")?;
+    create_dir_all(&images).wrap_err("Could not create images directory")
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
     pub shell: String,
@@ -93,9 +102,7 @@ impl Config {
     pub fn write(&self, name: &str) -> eyre::Result<()> {
         use std::io::prelude::*;
         let home = env::var("HOME").wrap_err("Could not find current home")?;
-        let meta = format!("{home}/{}/meta/", STORAGE);
-        create_dir_all(&meta).wrap_err("Could not create meta directory")?;
-        let storage = format!("{meta}/{name}.toml");
+        let storage = format!("{home}/{}/meta/{name}.toml", STORAGE);
         let content = toml::to_string(self).expect("valid toml config");
         let mut file = File::create(storage).wrap_err("Could not create meta file")?;
         file.write_all(content.as_bytes())?;
