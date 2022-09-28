@@ -2,16 +2,37 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use color_eyre::eyre;
-use color_eyre::eyre::WrapErr;
-use serde::{Deserialize, Serialize};
 use std::env;
 use std::ffi::OsString;
 use std::fs::{create_dir_all, File};
+
+use clap::Args;
+use color_eyre::eyre;
+use color_eyre::eyre::WrapErr;
+use serde::{Deserialize, Serialize};
 use toml::map::Keys;
 use toml::value::{Table, Value};
 
-pub fn configure(args: crate::Configure) -> eyre::Result<()> {
+pub const STORAGE: &str = ".local/share/unbox";
+
+/// Configure a toolbox creating a new meta-file if needed
+#[derive(Args, PartialEq, Eq, Debug)]
+pub struct Configure {
+    #[clap(value_parser)]
+    /// Name of the toolbox
+    name: String,
+    #[clap(short, long, value_parser)]
+    /// Default shell for the image
+    shell: Option<String>,
+    #[clap(short = 'n', long, value_parser)]
+    /// Default hostname for the image
+    hostname: Option<String>,
+    #[clap(long, value_parser)]
+    /// Default home for the image
+    home: Option<String>,
+}
+
+pub fn configure(args: Configure) -> eyre::Result<()> {
     let mut config =
         Config::read_or_new(&args.name).wrap_err("Could not get configuration for the toolbox")?;
     if let Some(sh) = args.shell {
@@ -49,14 +70,14 @@ impl Config {
             shell,
             hostname: name.to_string(),
             home: format!("/home/{user}"),
-            image: format!("{home}/{}/images/{name}", crate::STORAGE),
+            image: format!("{home}/{}/images/{name}", STORAGE),
             mounts: Config::default_mounts(),
         })
     }
 
     pub fn read(name: &str) -> eyre::Result<Self> {
         let home = env::var("HOME").wrap_err("Could not find current home")?;
-        let storage = format!("{home}/{}/meta/{name}.toml", crate::STORAGE);
+        let storage = format!("{home}/{}/meta/{name}.toml", STORAGE);
         let meta = std::fs::read_to_string(storage).wrap_err("Could not read meta file")?;
         let config: Config = toml::from_str(&meta).wrap_err("Meta file is corrupted")?;
         Ok(config)
@@ -72,7 +93,7 @@ impl Config {
     pub fn write(&self, name: &str) -> eyre::Result<()> {
         use std::io::prelude::*;
         let home = env::var("HOME").wrap_err("Could not find current home")?;
-        let meta = format!("{home}/{}/meta/", crate::STORAGE);
+        let meta = format!("{home}/{}/meta/", STORAGE);
         create_dir_all(&meta).wrap_err("Could not create meta directory")?;
         let storage = format!("{meta}/{name}.toml");
         let content = toml::to_string(self).expect("valid toml config");

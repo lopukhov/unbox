@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::process::Output;
 use std::time::Duration;
 
+use clap::{Args, ValueEnum};
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use indicatif::ProgressBar;
@@ -18,9 +19,35 @@ use tar::Archive;
 
 use crate::config::Config;
 use crate::namespaces::{Mapping, Namespace};
-use crate::Engine;
 
-pub fn create(args: crate::Create) -> eyre::Result<()> {
+/// Create a toolbox rootfs from an image
+#[derive(Args, PartialEq, Eq, Debug)]
+pub struct Create {
+    #[clap(value_parser)]
+    /// Name of the toolbox
+    name: String,
+    #[clap(short, long, value_parser)]
+    /// Path to the tarball
+    tar: Option<PathBuf>,
+    #[clap(short, long, value_parser)]
+    /// Url of the OCI image
+    image: Option<String>,
+    #[clap(short, long, value_parser)]
+    /// OCI engine to extract the rootfs
+    engine: Option<Engine>,
+    #[clap(short, long, value_parser)]
+    /// Default shell for the image to be created
+    shell: Option<String>,
+}
+
+/// OCI engine to extract the rootfs (docker or podman)
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, ValueEnum)]
+enum Engine {
+    Docker,
+    Podman,
+}
+
+pub fn create(args: Create) -> eyre::Result<()> {
     let mut config = Config::new(&args.name)?;
     let new_root = &config.image;
     eyre::ensure!(

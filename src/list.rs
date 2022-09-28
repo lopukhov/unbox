@@ -2,12 +2,18 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::config::Config;
-use crate::STORAGE;
+use std::env;
+
+use clap::Args;
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
-use std::env;
 use tabled::{Style, Table, Tabled};
+
+use crate::config::{Config, STORAGE};
+
+/// List toolboxes
+#[derive(Args, PartialEq, Eq, Debug)]
+pub struct List {}
 
 struct Row {
     name: String,
@@ -45,8 +51,7 @@ pub fn list() -> eyre::Result<()> {
     let storage = format!("{home}/{STORAGE}/images");
     let paths = std::fs::read_dir(storage).wrap_err("Could not read images directory")?;
     let rows: Vec<Row> = paths
-        .filter_map(|p| p.ok())
-        .filter_map(|p| p.file_name().into_string().ok())
+        .filter_map(|p| p.ok()?.file_name().into_string().ok())
         .filter_map(|p| Row::new(p).ok())
         .collect();
     if rows.is_empty() {

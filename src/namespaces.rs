@@ -6,8 +6,9 @@ use std::fmt::Display;
 use std::fs::{read_link, symlink_metadata};
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
 
+use clap::Args;
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use nix::sched::{unshare, CloneFlags};
@@ -16,16 +17,25 @@ use std::ffi::{OsStr, OsString};
 
 use crate::config::MountInfo;
 
-pub struct Mapping<'a> {
-    pub inside: &'a str,
-    pub outside: &'a str,
-    pub len: &'a str,
+// Setup the uid and gid mappings inside the namespace
+/// Internal subcommand. Should not be used directly
+#[derive(Args, PartialEq, Eq, Debug)]
+pub struct SetMappings {
+    /// Command arguments
+    #[clap(value_parser)]
+    args: Vec<String>,
 }
 
-impl Display for Mapping<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{} {} {}", self.inside, self.outside, self.len)
-    }
+pub(crate) fn set_mappings(args: SetMappings) -> eyre::Result<()> {
+    let mut input = String::with_capacity(7);
+    // We do not care about the input, only to check that we can continue
+    let _ = std::io::stdin().read_line(&mut input);
+
+    let mut uid_map = spawn("newuidmap", &args.args).wrap_err("Failure to write uid_map")?;
+    let mut gid_map = spawn("newgidmap", &args.args).wrap_err("Failure to write gid_map")?;
+    uid_map.wait().wrap_err("Failure to wait for uid_map")?;
+    gid_map.wait().wrap_err("Failure to wait for gid_map")?;
+    Ok(())
 }
 
 // TODO: properly implement Typestate
@@ -35,25 +45,43 @@ pub struct Toolbox;
 
 impl Namespace {
     pub fn start(flags: CloneFlags, mappings: &[Mapping<'_>]) -> eyre::Result<Pivoter> {
-        let subcmd = "set-mappings";
-        let pid = std::process::id().to_string();
-        let mut args = mappings
-            .iter()
-            .flat_map(|map| [map.inside, map.outside, map.len].into_iter())
-            .collect::<Vec<&str>>();
-        let mut argv = Vec::with_capacity(args.len() + 1);
-        argv.push(subcmd);
-        argv.push(&pid);
-        argv.append(&mut args);
+        // TODO: change this for a daemon
+        let argv = mappings_argv(mappings);
         let mut child = self_spawn(&argv).wrap_err("Could not spawn child to set up mappings")?;
 
         unshare(flags).wrap_err("Could not change namespace")?;
+
         writeln!(&mut child.stdin.as_ref().unwrap(), "unshare").wrap_err("communication failed")?;
         child
             .wait()
             .wrap_err("Failed when waiting for the mapping to be set up")?;
         Ok(Pivoter)
     }
+}
+
+fn mappings_argv<'a>(mappings: &[Mapping<'a>]) -> Vec<&'a str> {
+    let subcmd = "set-mappings";
+    let pid = std::process::id().to_string();
+    let mut args = mappings
+        .iter()
+        .flat_map(|map| [map.inside, map.outside, map.len].into_iter())
+        .collect::<Vec<&str>>();
+    let mut argv = Vec::with_capacity(args.len() + 1);
+    argv.push(subcmd);
+    argv.push(&pid);
+    argv.append(&mut args);
+    argv
+}
+
+fn self_spawn<S>(args: &[S]) -> eyre::Result<Child>
+where
+    S: AsRef<OsStr>,
+{
+    Command::new("/proc/self/exe")
+        .args(args)
+        .stdin(Stdio::piped())
+        .spawn()
+        .wrap_err("Could not spawn the requested command")
 }
 
 impl Pivoter {
@@ -72,46 +100,33 @@ impl Toolbox {
     {
         mounts
             .map(|m| (follow_symlink(m.source), m.target))
-            .try_for_each(|m| bind_mount(&m.0, &m.1))?;
-        Ok(())
+            .try_for_each(|m| bind_mount(&m.0, &m.1))
     }
 
     pub fn hostname(&self, name: &str) -> eyre::Result<()> {
         sethostname(name).wrap_err("Could not change the hostname")
     }
 
-    pub fn spawn<S>(&self, cmd: S, args: &[S]) -> eyre::Result<()>
+    pub fn spawn<S>(&self, cmd: S, args: &[S]) -> eyre::Result<ExitStatus>
     where
         S: AsRef<OsStr>,
     {
         spawn(cmd, args)?
             .wait()
-            .wrap_err("Error while waiting for child process")?;
-        Ok(())
+            .wrap_err("Error while waiting for child process")
     }
 }
 
-pub(crate) fn set_mappings(args: crate::SetMappings) -> eyre::Result<()> {
-    let mut input = String::with_capacity(7);
-    // We do not care about the input, only to check that we can continue
-    let _ = std::io::stdin().read_line(&mut input);
-
-    let mut uid_map = spawn("newuidmap", &args.args).wrap_err("Failure to write uid_map")?;
-    let mut gid_map = spawn("newgidmap", &args.args).wrap_err("Failure to write gid_map")?;
-    uid_map.wait().wrap_err("Failure to wait for uid_map")?;
-    gid_map.wait().wrap_err("Failure to wait for gid_map")?;
-    Ok(())
+pub struct Mapping<'a> {
+    pub inside: &'a str,
+    pub outside: &'a str,
+    pub len: &'a str,
 }
 
-fn self_spawn<S>(args: &[S]) -> eyre::Result<Child>
-where
-    S: AsRef<OsStr>,
-{
-    Command::new("/proc/self/exe")
-        .args(args)
-        .stdin(Stdio::piped())
-        .spawn()
-        .wrap_err("Could not spawn the requested command")
+impl Display for Mapping<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{} {} {}", self.inside, self.outside, self.len)
+    }
 }
 
 fn spawn<C, A>(cmd: C, args: &[A]) -> eyre::Result<Child>
