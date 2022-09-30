@@ -6,7 +6,6 @@
 #![warn(rust_2018_idioms, missing_debug_implementations)]
 
 // TODO: add documentation
-// TODO: anyhow vs eyre vs thiserror
 
 use clap::{Parser, Subcommand};
 use color_eyre::eyre;

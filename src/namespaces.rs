@@ -5,8 +5,9 @@
 use std::fmt::Display;
 use std::fs::{read_link, symlink_metadata};
 use std::io::Write;
+use std::os::unix::prelude::CommandExt;
 use std::path::PathBuf;
-use std::process::{Child, Command, ExitStatus, Stdio};
+use std::process::{Child, Command, Stdio};
 
 use clap::Args;
 use color_eyre::eyre;
@@ -30,33 +31,59 @@ pub(crate) fn set_mappings(args: SetMappings) -> eyre::Result<()> {
     let mut input = String::with_capacity(7);
     // We do not care about the input, only to check that we can continue
     let _ = std::io::stdin().read_line(&mut input);
+    std::thread::scope(|s| {
+        s.spawn(|| {
+            let mut uid_map =
+                match spawn("newuidmap", &args.args).wrap_err("Failure to write uid_map") {
+                    Ok(child) => child,
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                };
+            uid_map.wait().expect("Failure to wait for uid_map");
+        });
+        s.spawn(|| {
+            let mut gid_map =
+                match spawn("newgidmap", &args.args).wrap_err("Failure to write gid_map") {
+                    Ok(child) => child,
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                };
+            gid_map.wait().expect("Failure to wait for gid_map");
+        });
+    });
 
-    let mut uid_map = spawn("newuidmap", &args.args).wrap_err("Failure to write uid_map")?;
-    let mut gid_map = spawn("newgidmap", &args.args).wrap_err("Failure to write gid_map")?;
-    uid_map.wait().wrap_err("Failure to wait for uid_map")?;
-    gid_map.wait().wrap_err("Failure to wait for gid_map")?;
     Ok(())
 }
 
-// TODO: properly implement Typestate
-pub struct Namespace;
+pub struct Namespace<T> {
+    mapper: Child,
+    typestate: std::marker::PhantomData<T>,
+}
+
+#[allow(dead_code)]
+pub struct Setup;
+
 pub struct Pivoter;
 pub struct Toolbox;
 
-impl Namespace {
-    pub fn start(flags: CloneFlags, mappings: &[Mapping<'_>]) -> eyre::Result<Pivoter> {
-        // TODO: change this for a daemon
+impl Namespace<Setup> {
+    pub fn start(flags: CloneFlags, mappings: &[Mapping<'_>]) -> eyre::Result<Namespace<Pivoter>> {
         let pid = std::process::id().to_string();
         let argv = mappings_argv(&pid, mappings);
-        let mut child = self_spawn(&argv).wrap_err("Could not spawn child to set up mappings")?;
+        let child = self_spawn(&argv).wrap_err("Could not spawn child to set up mappings")?;
 
         unshare(flags).wrap_err("Could not change namespace")?;
 
         writeln!(&mut child.stdin.as_ref().unwrap(), "unshare").wrap_err("communication failed")?;
-        child
-            .wait()
-            .wrap_err("Failed when waiting for the mapping to be set up")?;
-        Ok(Pivoter)
+        let next = Namespace {
+            mapper: child,
+            typestate: std::marker::PhantomData,
+        };
+        Ok(next)
     }
 }
 
@@ -84,16 +111,20 @@ where
         .wrap_err("Could not spawn the requested command")
 }
 
-impl Pivoter {
-    pub fn pivot(&self, new_root: &OsStr, old_root: &OsStr) -> eyre::Result<Toolbox> {
+impl Namespace<Pivoter> {
+    pub fn pivot(self, new_root: &OsStr, old_root: &OsStr) -> eyre::Result<Namespace<Toolbox>> {
         // We have to bind mount the new root to itself because it is part of the old root
         bind_mount(new_root, new_root)?;
         pivot_root(new_root, old_root).wrap_err("Could not pivot into the new root")?;
-        Ok(Toolbox)
+        let next = Namespace {
+            mapper: self.mapper,
+            typestate: std::marker::PhantomData,
+        };
+        Ok(next)
     }
 }
 
-impl Toolbox {
+impl Namespace<Toolbox> {
     pub fn mounts<I>(&self, mounts: I) -> eyre::Result<()>
     where
         I: Iterator<Item = MountInfo>,
@@ -107,13 +138,13 @@ impl Toolbox {
         sethostname(name).wrap_err("Could not change the hostname")
     }
 
-    pub fn spawn<S>(&self, cmd: S, args: &[S]) -> eyre::Result<ExitStatus>
+    pub fn spawn<S>(&mut self, cmd: S, args: &[S]) -> eyre::Result<()>
     where
         S: AsRef<OsStr>,
     {
-        spawn(cmd, args)?
-            .wait()
-            .wrap_err("Error while waiting for child process")
+        self.mapper.wait().expect("interrupted");
+        Command::new(cmd).args(args).exec();
+        eyre::bail!("Could not execute the requested command")
     }
 }
 

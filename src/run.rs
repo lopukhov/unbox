@@ -40,14 +40,7 @@ pub struct Run {
 }
 
 pub fn nsexec(args: Execute) -> eyre::Result<()> {
-    let config = configuration(&args)?;
-
     let flags = CloneFlags::CLONE_NEWUSER | CloneFlags::CLONE_NEWUTS | CloneFlags::CLONE_NEWNS;
-    let new_root = &config.image;
-    let old_root = format!("{new_root}/host");
-
-    env::set_var("PATH", extend_path());
-    env::set_var("HOME", &config.home);
 
     let uid = users::get_current_uid().to_string();
     let mappings = [
@@ -62,15 +55,22 @@ pub fn nsexec(args: Execute) -> eyre::Result<()> {
             len: "65536",
         },
     ];
+    let pivot = Namespace::start(flags, &mappings)?;
+
+    let config = configuration(&args)?;
+    let new_root = &config.image;
+    let old_root = format!("{new_root}/host");
     let mounts = config.mounts().filter_map(|m| m.ok());
 
-    let pivot = Namespace::start(flags, &mappings)?;
-    let toolbox = pivot.pivot(new_root.as_ref(), old_root.as_ref())?;
+    env::set_var("PATH", extend_path());
+    env::set_var("HOME", &config.home);
+
+    let mut toolbox = pivot.pivot(new_root.as_ref(), old_root.as_ref())?;
     toolbox.mounts(mounts)?;
     toolbox.hostname(&config.hostname)?;
     match args {
-        Execute::Enter(_) => toolbox.spawn(config.shell, &[]).map(|_| ()),
-        Execute::Run(args) => toolbox.spawn(args.cmd, &args.args).map(|_| ()),
+        Execute::Enter(_) => toolbox.spawn(config.shell, &[]),
+        Execute::Run(args) => toolbox.spawn(args.cmd, &args.args),
     }
 }
 
