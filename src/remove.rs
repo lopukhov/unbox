@@ -18,9 +18,10 @@ use crate::config::{Config, STORAGE};
 pub struct Remove {
     #[clap(value_parser)]
     /// Name of the toolbox
-    name: String,
+    pub name: String,
 }
 
+// TODO: remove multiple toolboxes
 pub fn remove(args: Remove) -> eyre::Result<()> {
     let home = env::var("HOME").wrap_err("Could not find current home")?;
     let meta = format!("{home}/{}/meta/{}.toml", STORAGE, &args.name);

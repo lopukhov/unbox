@@ -3,19 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #![forbid(unsafe_code)]
-#![warn(rust_2018_idioms, missing_debug_implementations)]
-
-// TODO: add documentation
 
 use clap::{Parser, Subcommand};
 use color_eyre::eyre;
 
-mod config;
-mod create;
-mod list;
-mod namespaces;
-mod remove;
-mod run;
+use unbox::*;
 
 /// Unshare a toolbox
 #[derive(Parser, PartialEq, Eq, Debug)]

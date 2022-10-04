@@ -25,24 +25,27 @@ use crate::namespaces::{Mapping, Namespace};
 pub struct Create {
     #[clap(value_parser)]
     /// Name of the toolbox
-    name: String,
+    pub name: String,
     #[clap(short, long, value_parser)]
     /// Path to the tarball
-    tar: Option<PathBuf>,
+    pub tar: Option<PathBuf>,
     #[clap(short, long, value_parser)]
     /// Url of the OCI image
-    image: Option<String>,
+    pub image: Option<String>,
     #[clap(short, long, value_parser)]
     /// OCI engine to extract the rootfs
-    engine: Option<Engine>,
+    pub engine: Option<Engine>,
     #[clap(short, long, value_parser)]
     /// Default shell for the image to be created
-    shell: Option<String>,
+    pub shell: Option<String>,
+    #[clap(short, long, value_parser)]
+    /// Default shell for the image to be created
+    pub quiet: bool,
 }
 
 /// OCI engine to extract the rootfs (docker or podman)
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, ValueEnum)]
-enum Engine {
+pub enum Engine {
     Docker,
     Podman,
 }
@@ -61,7 +64,7 @@ pub fn create(args: Create) -> eyre::Result<()> {
     config.write(&args.name)?;
 
     if let Some(tar) = args.tar {
-        setup_new_root(new_root, tar)
+        setup_new_root(new_root, tar, args.quiet)
     } else if let Some(oci) = args.image {
         // podman export $(podman create alpine) --output=alpine.tar
         let tar_file = format!("/tmp/unbox-{}-image.tar", args.name);
@@ -69,10 +72,10 @@ pub fn create(args: Create) -> eyre::Result<()> {
             .engine
             .ok_or_else(|| eyre::eyre!("A valid engine has not been provided"))?
         {
-            Engine::Docker => get_image("docker", &oci, &tar_file)?,
-            Engine::Podman => get_image("podman", &oci, &tar_file)?,
+            Engine::Docker => get_image("docker", &oci, &tar_file, args.quiet)?,
+            Engine::Podman => get_image("podman", &oci, &tar_file, args.quiet)?,
         };
-        setup_new_root(new_root, tar_file.into())
+        setup_new_root(new_root, tar_file.into(), args.quiet)
     } else {
         Err(eyre::eyre!(
             "No tar archive or valid OCI arguments have been provided"
@@ -80,7 +83,39 @@ pub fn create(args: Create) -> eyre::Result<()> {
     }
 }
 
-fn setup_new_root(new_root: &str, tar: PathBuf) -> eyre::Result<()> {
+struct Spinner(Option<ProgressBar>);
+
+impl Spinner {
+    fn new(quiet: bool) -> Self {
+        use indicatif::ProgressStyle;
+
+        if quiet {
+            Spinner(None)
+        } else {
+            let style = ProgressStyle::default_spinner()
+                .template("{msg} {spinner}")
+                .expect("valid template");
+            let spinner = ProgressBar::new_spinner().with_style(style);
+            spinner.enable_steady_tick(Duration::from_millis(50));
+            Spinner(Some(spinner))
+        }
+    }
+
+    fn message(&self, msg: &'static str) {
+        if let Some(spinner) = &self.0 {
+            spinner.set_message(msg);
+        }
+    }
+
+    // TODO: Drop
+    fn clear(&self) {
+        if let Some(spinner) = &self.0 {
+            spinner.finish_and_clear();
+        }
+    }
+}
+
+fn setup_new_root(new_root: &str, tar: PathBuf, quiet: bool) -> eyre::Result<()> {
     let flags = CloneFlags::CLONE_NEWUSER;
     let uid = users::get_current_uid().to_string();
     let mappings = &[Mapping {
@@ -88,16 +123,17 @@ fn setup_new_root(new_root: &str, tar: PathBuf) -> eyre::Result<()> {
         outside: &uid,
         len: "1",
     }];
-    Namespace::start(flags, mappings)?;
-    let spinner = get_spinner();
-    spinner.set_message("Unpacking tar file");
+    let mut ns = Namespace::start(flags, mappings)?;
+    ns.wait();
+    let spinner = Spinner::new(quiet);
+    spinner.message("Unpacking tar file");
     unpack_tar(tar, new_root)?;
-    spinner.set_message("Setting up files and directories");
+    spinner.message("Setting up files and directories");
     let dirs = ["host", "proc", "sys", "dev"];
     create_dirs(new_root, &dirs)?;
     File::create(format!("{new_root}/etc/resolv.conf")).expect("path exists and is writable");
     // TODO: create user
-    spinner.finish_and_clear();
+    spinner.clear();
     Ok(())
 }
 
@@ -124,15 +160,16 @@ fn unpack_tar(tar: PathBuf, new_root: &str) -> eyre::Result<()> {
     Ok(())
 }
 
-fn get_image(engine: &str, url: &str, tar_file: &str) -> eyre::Result<()> {
-    let spinner = get_spinner();
-    spinner.set_message("Downloading image");
+fn get_image(engine: &str, url: &str, tar_file: &str, quiet: bool) -> eyre::Result<()> {
+    let spinner = Spinner::new(quiet);
+    spinner.message("Downloading image");
     let cid = spawn(engine, &["create", url])?.stdout;
     let cid = std::str::from_utf8(&cid)
         .expect("Podman/Docker gives valid utf8 output")
         .trim();
     spawn(engine, &["export", cid, "--output", tar_file])?;
     spawn(engine, &["rm", cid])?;
+    spinner.clear();
     Ok(())
 }
 
@@ -146,17 +183,6 @@ where
         .args(args)
         .output()
         .wrap_err("Could not execute the provided engine")
-}
-
-fn get_spinner() -> ProgressBar {
-    use indicatif::ProgressStyle;
-
-    let style = ProgressStyle::default_spinner()
-        .template("{msg} {spinner}")
-        .expect("valid template");
-    let spinner = ProgressBar::new_spinner().with_style(style);
-    spinner.enable_steady_tick(Duration::from_millis(50));
-    spinner
 }
 
 fn create_dirs(root: &str, dirs: &[&str]) -> eyre::Result<()> {

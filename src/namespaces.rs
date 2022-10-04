@@ -27,7 +27,7 @@ pub struct SetMappings {
     args: Vec<String>,
 }
 
-pub(crate) fn set_mappings(args: SetMappings) -> eyre::Result<()> {
+pub fn set_mappings(args: SetMappings) -> eyre::Result<()> {
     let mut input = String::with_capacity(7);
     // We do not care about the input, only to check that we can continue
     let _ = std::io::stdin().read_line(&mut input);
@@ -69,6 +69,12 @@ pub struct Setup;
 
 pub struct Pivoter;
 pub struct Toolbox;
+
+impl<T> Namespace<T> {
+    pub fn wait(&mut self) {
+        self.mapper.wait().expect("interrupted");
+    }
+}
 
 impl Namespace<Setup> {
     pub fn start(flags: CloneFlags, mappings: &[Mapping<'_>]) -> eyre::Result<Namespace<Pivoter>> {
@@ -142,7 +148,7 @@ impl Namespace<Toolbox> {
     where
         S: AsRef<OsStr>,
     {
-        self.mapper.wait().expect("interrupted");
+        self.wait();
         Command::new(cmd).args(args).exec();
         eyre::bail!("Could not execute the requested command")
     }

@@ -30,13 +30,13 @@ pub struct Enter {
 pub struct Run {
     #[clap(value_parser)]
     /// Name of the toolbox
-    name: String,
+    pub name: String,
     #[clap(value_parser)]
     /// Command to run
-    cmd: String,
+    pub cmd: String,
     /// Command arguments
     #[clap(value_parser)]
-    args: Vec<String>,
+    pub args: Vec<String>,
 }
 
 pub fn nsexec(args: Execute) -> eyre::Result<()> {

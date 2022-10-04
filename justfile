@@ -4,8 +4,10 @@ default:
 # Check for incompatible licenses and security advisories, lint and run tests
 check:
   cargo deny check
-  cargo clippy
-  cargo test
+  cargo clippy -q
+  cargo run -q -- create -i docker.io/archlinux -e podman --quiet exec-tests
+  cargo test -- --test-threads=1
+  cargo run -q -- rm exec-tests
 
 # Profile the appropriate benchmark
 profile SUITE BENCH:
