@@ -18,7 +18,7 @@ fn create_ubuntu() {
     create(args).unwrap();
 
     let args = Remove {
-        name: "ubuntu-test".into(),
+        names: vec!["ubuntu-test".into()],
     };
     remove(args).unwrap()
 }

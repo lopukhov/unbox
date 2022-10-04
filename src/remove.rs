@@ -17,16 +17,22 @@ use crate::config::{Config, STORAGE};
 #[derive(Args, PartialEq, Eq, Debug)]
 pub struct Remove {
     #[clap(value_parser)]
-    /// Name of the toolbox
-    pub name: String,
+    /// Names of the toolboxes to be removed
+    pub names: Vec<String>,
 }
 
-// TODO: remove multiple toolboxes
 pub fn remove(args: Remove) -> eyre::Result<()> {
+    for name in args.names {
+        remove_one(name)?;
+    }
+    Ok(())
+}
+
+pub fn remove_one(name: String) -> eyre::Result<()> {
     let home = env::var("HOME").wrap_err("Could not find current home")?;
-    let meta = format!("{home}/{}/meta/{}.toml", STORAGE, &args.name);
+    let meta = format!("{home}/{}/meta/{}.toml", STORAGE, name);
     let config =
-        Config::read_or_new(&args.name).wrap_err("Could not get configuration for the toolbox")?;
+        Config::read_or_new(&name).wrap_err("Could not get configuration for the toolbox")?;
     for entry in WalkDir::new(&config.image)
         .into_iter()
         .filter_map(|e| e.ok())

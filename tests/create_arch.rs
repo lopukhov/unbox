@@ -18,7 +18,7 @@ fn create_arch() {
     create(args).unwrap();
 
     let args = Remove {
-        name: "arch-test".into(),
+        names: vec!["arch-test".into()],
     };
     remove(args).unwrap()
 }

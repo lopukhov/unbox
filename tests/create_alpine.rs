@@ -18,7 +18,7 @@ fn create_alpine() {
     create(args).unwrap();
 
     let args = Remove {
-        name: "alpine-test".into(),
+        names: vec!["alpine-test".into()],
     };
     remove(args).unwrap()
 }
