@@ -15,7 +15,7 @@ color-eyre = { version = "0.6", default-features = false }
 indicatif = "0.17"
 nix = "0.25"
 serde = { version = "1", features = ["derive"] }
-tabled = { version = "0.9", default-features = false }
+tabled = { version = "0.10", default-features = false }
 tar = "0.4"
 toml = "0.5"
 users = "0.11"
