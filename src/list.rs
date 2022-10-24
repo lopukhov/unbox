@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::env;
+use std::{borrow::Cow, env};
 
 use clap::Args;
 use color_eyre::eyre;
@@ -30,18 +30,18 @@ impl Row {
 impl Tabled for Row {
     const LENGTH: usize = 4;
 
-    fn fields(&self) -> Vec<String> {
+    fn fields(&self) -> Vec<Cow<'_, str>> {
         vec![
-            self.name.to_string(),
-            self.config.shell.clone(),
-            self.config.hostname.clone(),
-            self.config.image.clone(),
+            Cow::Borrowed(&self.name),
+            Cow::Borrowed(&self.config.shell),
+            Cow::Borrowed(&self.config.hostname),
+            Cow::Borrowed(&self.config.image),
         ]
     }
-    fn headers() -> Vec<String> {
+    fn headers() -> Vec<Cow<'static, str>> {
         ["name", "shell", "hostname", "image"]
             .into_iter()
-            .map(|h| h.to_string())
+            .map(Cow::from)
             .collect()
     }
 }
@@ -60,7 +60,8 @@ pub fn list() -> eyre::Result<()> {
         println!("\t unbox create <name> -i <container image url> -e <container engine>");
         println!("\t unbox create <name> -t <tar file>");
     } else {
-        let table = Table::new(rows).with(Style::modern());
+        let mut table = Table::new(rows);
+        let table = table.with(Style::modern());
         print!("{table}");
     }
     Ok(())
