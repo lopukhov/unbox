@@ -49,20 +49,27 @@ impl Tabled for Row {
 pub fn list() -> eyre::Result<()> {
     let home = env::var("HOME").wrap_err("Could not find current home")?;
     let storage = format!("{home}/{STORAGE}/images");
-    let paths = std::fs::read_dir(storage).wrap_err("Could not read images directory")?;
+    let paths = match std::fs::read_dir(storage) {
+        Ok(paths) => paths,
+        Err(_) => return Ok(help()),
+    };
     let rows: Vec<Row> = paths
         .filter_map(|p| p.ok()?.file_name().into_string().ok())
         .filter_map(|p| Row::new(p).ok())
         .collect();
     if rows.is_empty() {
-        println!("No images could be found, maybe you want to create a new one first:");
-        println!();
-        println!("\t unbox create <name> -i <container image url> -e <container engine>");
-        println!("\t unbox create <name> -t <tar file>");
+        help();
     } else {
         let mut table = Table::new(rows);
         let table = table.with(Style::modern());
         print!("{table}");
     }
     Ok(())
+}
+
+fn help() {
+    println!("No images could be found, maybe you want to create a new one first:");
+    println!();
+    println!("\t unbox create <name> -i <container image url> -e <container engine>");
+    println!("\t unbox create <name> -t <tar file>");
 }
