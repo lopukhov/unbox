@@ -43,19 +43,8 @@ pub fn nsexec(args: Execute) -> eyre::Result<()> {
     let flags = CloneFlags::CLONE_NEWUSER | CloneFlags::CLONE_NEWUTS | CloneFlags::CLONE_NEWNS;
 
     let uid = users::get_current_uid().to_string();
-    let mappings = [
-        Mapping {
-            inside: "0",
-            outside: &uid,
-            len: "1",
-        },
-        Mapping {
-            inside: "1",
-            outside: "100000",
-            len: "65536",
-        },
-    ];
-    let pivot = Namespace::start(flags, &mappings)?;
+    let gid = users::get_current_gid().to_string();
+    let pivot = Namespace::start(flags, &id_map(&uid), &id_map(&gid))?;
 
     let config = configuration(&args)?;
     let new_root = &config.image;
@@ -72,6 +61,21 @@ pub fn nsexec(args: Execute) -> eyre::Result<()> {
         Execute::Enter(_) => toolbox.spawn(config.shell, &[]),
         Execute::Run(args) => toolbox.spawn(args.cmd, &args.args),
     }
+}
+
+fn id_map(guid: &str) -> [Mapping<'_>; 2] {
+    [
+        Mapping {
+            inside: "0",
+            outside: guid,
+            len: "1",
+        },
+        Mapping {
+            inside: "1",
+            outside: "100000",
+            len: "65536",
+        },
+    ]
 }
 
 fn configuration(args: &Execute) -> eyre::Result<Config> {

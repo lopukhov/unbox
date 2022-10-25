@@ -47,6 +47,6 @@ fn main() -> eyre::Result<()> {
         Subcommands::Configure(args) => config::configure(args),
         Subcommands::Remove(args) => remove::remove(args),
         Subcommands::List(_) => list::list(),
-        Subcommands::SetMappings(args) => namespaces::set_mappings(args),
+        Subcommands::SetMappings(_) => namespaces::set_mappings(),
     }
 }

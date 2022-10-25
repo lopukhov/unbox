@@ -51,7 +51,10 @@ pub fn list() -> eyre::Result<()> {
     let storage = format!("{home}/{STORAGE}/images");
     let paths = match std::fs::read_dir(storage) {
         Ok(paths) => paths,
-        Err(_) => return Ok(help()),
+        Err(_) => {
+            help();
+            return Ok(());
+        }
     };
     let rows: Vec<Row> = paths
         .filter_map(|p| p.ok()?.file_name().into_string().ok())

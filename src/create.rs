@@ -118,12 +118,8 @@ impl Spinner {
 fn setup_new_root(new_root: &str, tar: PathBuf, quiet: bool) -> eyre::Result<()> {
     let flags = CloneFlags::CLONE_NEWUSER;
     let uid = users::get_current_uid().to_string();
-    let mappings = &[Mapping {
-        inside: "0",
-        outside: &uid,
-        len: "1",
-    }];
-    let mut ns = Namespace::start(flags, mappings)?;
+    let gid = users::get_current_gid().to_string();
+    let mut ns = Namespace::start(flags, &[id_map(&uid)], &[id_map(&gid)])?;
     ns.wait();
     let spinner = Spinner::new(quiet);
     spinner.message("Unpacking tar file");
@@ -190,4 +186,12 @@ fn create_dirs(root: &str, dirs: &[&str]) -> eyre::Result<()> {
         create_dir_all(format!("{root}/{dir}")).expect("path exists and is writable");
     }
     Ok(())
+}
+
+fn id_map(guid: &str) -> Mapping<'_> {
+    Mapping {
+        inside: "0",
+        outside: guid,
+        len: "1",
+    }
 }
