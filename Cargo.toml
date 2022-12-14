@@ -13,7 +13,7 @@ categories = ["virtualization"]
 clap = { version = "3.2", features = ["derive"] }
 color-eyre = { version = "0.6", default-features = false }
 indicatif = "0.17"
-nix = "0.25"
+nix = "0.26"
 serde = { version = "1", features = ["derive"] }
 tabled = { version = "0.10", default-features = false }
 tar = "0.4"
