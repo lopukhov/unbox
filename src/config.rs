@@ -53,8 +53,8 @@ pub fn setup() -> eyre::Result<()> {
     let home = var("HOME").wrap_err("Could not find current home")?;
     let meta = format!("{home}/{}/meta/", STORAGE);
     let images = format!("{home}/{}/images/", STORAGE);
-    create_dir_all(&meta).wrap_err("Could not create meta directory")?;
-    create_dir_all(&images).wrap_err("Could not create images directory")
+    create_dir_all(meta).wrap_err("Could not create meta directory")?;
+    create_dir_all(images).wrap_err("Could not create images directory")
 }
 
 #[derive(Debug, Deserialize, Serialize)]

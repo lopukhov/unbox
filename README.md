@@ -6,8 +6,7 @@ is implemented directly with Linux Namespaces to provide the environment of exec
 to use existing OCI images.
 
 > **Warning**
-> The implementation is still very young, and has not been "battle tested" at all, the only usage to my knowledge has been in my personal
-> computer. If you find any bugs, please open an issue.
+> The implementation is still very young, and has not been "battle tested" at all, if you find any bugs, please open an issue.
 
 ## Installation
 
@@ -42,7 +41,7 @@ $ just sbuild optimized
 $ cp ./target/x86_64-unknown-linux-musl/optimized/unbox ~/.local/bin/
 ```
 
-But it is not needed, you can also use:
+But if you prefer a dynamically linked binary, you can also use:
 
 ```sh
 $ cargo build --profile optimized
@@ -75,7 +74,7 @@ For example to create an Arch Linux toolbox from its official OCI image using `p
 $ unbox create archlinux -i docker.io/archlinux:latest -e podman
 ```
 
-In any case it is possible to assign the default shell for the new image at creation time, in case the image does not have the current users' shell:
+In any case, it is possible to assign the default shell for the new image at creation time, in case the image does not have the current users' shell:
 
 ```sh
 $ unbox create alpine -i docker.io/alpine:latest -e podman -s /bin/sh
@@ -109,6 +108,7 @@ To list the names of the existing toolboxes:
 
 ```sh
 $ unbox list
+$ unbox ls
 ```
 
 ### Remove
@@ -117,6 +117,24 @@ To delete an existing toolbox:
 
 ```sh
 $ unbox rm <name>
+$ unbox remove <name>
+```
+
+Multiple toolboxes can be removed at the same time:
+
+```sh
+$ unbox rm <name1> <name2> ...
+$ unbox remove <name1> <name2> ...
+```
+
+### Configure
+
+Most toolboxes will have a configuration file stored at `~/.local/share/unbox/meta/`. To change the configuration of a toolbox the `configure`
+subcommand is recommended. To list the possible options:
+
+```sh
+$ unbox cfg -h
+$ unbox configure --help
 ```
 
 ## Alternatives
@@ -127,8 +145,8 @@ or lose accuracy with new developments in each of the different implementations.
 
 | Implementation                                       | Language | Based on             | Image                  | Time to enter |
 |------------------------------------------------------|----------|----------------------|------------------------|---------------|
-| [`toolbx`](https://github.com/containers/toolbox)    | Go       | `podman`             | OCI images             | 830 ms        |
-| [`distrobox`](https://github.com/89luca89/distrobox) | Shell    | `podman` or `docker` | OCI images             | 273 ms        |
+| [`toolbx`](https://github.com/containers/toolbox)    | Go       | `podman`             | OCI images             | 249 ms        |
+| [`distrobox`](https://github.com/89luca89/distrobox) | Shell    | `podman` or `docker` | OCI images             | 153 ms        |
 | [`nsbox`](https://github.com/refi64/nsbox)           | Go       | `systemd-nspawn`     | Ansible                | --- ms        |
 | [`devbox`](https://github.com/jetpack-io/devbox)     | Go       | `nix-shell`          | -                      | --- ms        |
 | [`unbox`](https://github.com/lopukhov/unbox)         | Rust     | -                    | OCI images or tarballs | 2 ms          |
