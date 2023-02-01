@@ -10,7 +10,7 @@ keywords = ["containers", "toolbox", "unbox", "linux"]
 categories = ["virtualization"]
 
 [dependencies]
-clap = { version = "3.2", features = ["derive"] }
+clap = { version = "4.1", features = ["derive"] }
 color-eyre = { version = "0.6", default-features = false }
 indicatif = "0.17"
 nix = "0.26"
